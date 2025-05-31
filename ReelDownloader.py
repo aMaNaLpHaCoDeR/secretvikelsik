@@ -68,12 +68,12 @@ def get_next_serialized_filename(download_folder):
     return next_filename
 
 # Function to check if the download is complete
-def is_download_complete(download_folder):
-    print(f"[LOG] Checking if download is complete in folder: {download_folder}")
-    temp_files = [entry.name for entry in os.scandir(download_folder) if entry.is_file() and entry.name.endswith('.mp4')]
-    if temp_files:
-        print(f"[LOG] MP4 files: {temp_files}")
-        return True
+# def is_download_complete(download_folder):
+#     print(f"[LOG] Checking if download is complete in folder: {download_folder}")
+#     temp_files = [entry.name for entry in os.scandir(download_folder) if entry.is_file() and entry.name.split('.')[-1].lower() == 'mp4']
+#     if temp_files:
+#         print(f"[LOG] MP4 files: {temp_files}")
+#         return True
 
 def get_counter_value(counter_file):
     print(f"[LOG] Getting counter value from file: {counter_file}")
@@ -95,12 +95,12 @@ def increment_counter(counter_file):
         f.write(str(value))
     return value
 
-def rename_and_move_downloaded_file(temp_folder, videos_folder, counter_file, reel_url, links_file):
+def rename_and_move_downloaded_file(temp_folder, videos_folder, counter, reel_url, links_file):
     print(f"[LOG] Starting rename_and_move_downloaded_file for reel: {reel_url}")
     # Wait until there are no active downloads
-    while not is_download_complete(temp_folder):
-        print("[LOG] Waiting for download to complete...")
-        time.sleep(60)  # Check every 60 seconds
+    # while not is_download_complete(temp_folder):
+    #     print("[LOG] Waiting for download to complete...")
+    time.sleep(30)  # Check every 30 seconds
     # Exclude 'null.mp4' from the list
     files = [f for f in os.listdir(temp_folder) if f.endswith('.mp4') and f != 'null.mp4']
     print(f"Files in temp folder: {files}")
@@ -109,8 +109,6 @@ def rename_and_move_downloaded_file(temp_folder, videos_folder, counter_file, re
         print(f"Latest file: {latest_file}")
         latest_file_path = os.path.join(temp_folder, latest_file)
         print(f"Latest file path: {latest_file_path}")
-        counter = get_counter_value(counter_file)
-        print(f"Counter value: {counter}")
         new_filename = f"Video_{counter}.mp4"
         print(f"New filename: {new_filename}")
         renamed_path = os.path.join(temp_folder, new_filename)
@@ -119,8 +117,8 @@ def rename_and_move_downloaded_file(temp_folder, videos_folder, counter_file, re
         size_mb = os.path.getsize(renamed_path) / (1024 * 1024)
         print(f"File size (MB): {size_mb}")
         if size_mb > 100:
-            print(f"File {renamed_path} is too large ({size_mb:.2f} MB). Removing...")
-            os.remove(renamed_path)
+            print(f"File {renamed_path} is too large ({size_mb:.2f} MB).")
+            # os.remove(renamed_path)
 
             # Update links.txt to mark the link as "LARGE FILE"
             with open(links_file, 'r', encoding='utf-8') as file:
@@ -136,7 +134,7 @@ def rename_and_move_downloaded_file(temp_folder, videos_folder, counter_file, re
             final_path = os.path.join(videos_folder, new_filename)
             shutil.move(renamed_path, final_path)
             print(f"File renamed and moved to: {final_path}")
-        increment_counter(counter_file)
+        
     print(f"[LOG] Completed rename_and_move_downloaded_file for reel: {reel_url}")
 
 # Function to download Instagram reels using sssinstagram.net
@@ -194,17 +192,26 @@ def download_instagram_reels_sssinstagram(reel_url, temp_folder, videos_folder, 
         return 0
 
 # Add this function to handle retries
-def download_with_retry(reel_url, temp_folder, videos_folder, counter_file, links_file, max_retries=7):
+def download_with_retry(reel_url, temp_folder, videos_folder, counter, links_file, max_retries=7):
     print(f"[LOG] Starting download_with_retry for reel: {reel_url}")
     attempt = 0
     success = False
 
     while attempt < max_retries and not success:
         print(f"[LOG] Attempt {attempt + 1} for reel: {reel_url}")
-        number = download_instagram_reels_sssinstagram(reel_url, temp_folder, videos_folder, counter_file, links_file)
-        if number == 1:
+        number = download_instagram_reels_sssinstagram(reel_url, temp_folder, videos_folder, counter, links_file)
+        video_filename = f"Video_{counter}.mp4"
+        video_path = os.path.join(videos_folder, video_filename)
+        
+        if number == 1 and os.path.exists(video_path):
+            print(f"[LOG] File {video_filename} already exists in {videos_folder}. Skipping download.")
             success = True
             print(f"[LOG] Successfully downloaded reel after {attempt + 1} attempts: {reel_url}")
+            size_mb = os.path.getsize(video_path) / (1024 * 1024)
+            print(f"File size (MB): {size_mb}")
+            if size_mb > 100:
+                print(f"File {video_path} is too large ({size_mb:.2f} MB). Removing...")
+                os.remove(video_path)
             break
         else:
             attempt += 1
@@ -226,7 +233,10 @@ def main():
         reel_links = [line.strip() for line in file.readlines()]
         for reel_link in reel_links:
             print(f"Downloading reel: {reel_link}")
-            download_with_retry(reel_link, temp_folder, videos_folder, counter_file, links_file)
+            counter = get_counter_value(counter_file)
+            print(f"Counter value: {counter}")
+            download_with_retry(reel_link, temp_folder, videos_folder, counter, links_file)
+            increment_counter(counter_file)
     print("[LOG] Completed main function.")
 
 if __name__ == "__main__":
