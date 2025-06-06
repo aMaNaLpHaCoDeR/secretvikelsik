@@ -68,12 +68,12 @@ def get_next_serialized_filename(download_folder):
     return next_filename
 
 # Function to check if the download is complete
-def is_download_complete(download_folder):
-    print(f"[LOG] Checking if download is complete in folder: {download_folder}")
-    temp_files = [entry.name for entry in os.scandir(download_folder) if entry.is_file() and entry.name.endswith('.mp4')]
-    if temp_files:
-        print(f"[LOG] MP4 files: {temp_files}")
-        return True
+# def is_download_complete(download_folder):
+#     print(f"[LOG] Checking if download is complete in folder: {download_folder}")
+#     temp_files = [entry.name for entry in os.scandir(download_folder) if entry.is_file() and entry.name.split('.')[-1].lower() == 'mp4']
+#     if temp_files:
+#         print(f"[LOG] MP4 files: {temp_files}")
+#         return True
 
 def get_counter_value(counter_file):
     print(f"[LOG] Getting counter value from file: {counter_file}")
@@ -98,10 +98,10 @@ def increment_counter(counter_file):
 def rename_and_move_downloaded_file(temp_folder, videos_folder, counter, reel_url, links_file):
     print(f"[LOG] Starting rename_and_move_downloaded_file for reel: {reel_url}")
     # Wait until there are no active downloads
-    while not is_download_complete(temp_folder):
-        print("[LOG] Waiting for download to complete...")
-        time.sleep(5)  # Check every 5 seconds
-
+    # while not is_download_complete(temp_folder):
+    #     print("[LOG] Waiting for download to complete...")
+    time.sleep(15)  # Check every 30 seconds
+    # Exclude 'null.mp4' from the list
     files = [f for f in os.listdir(temp_folder) if f.endswith('.mp4') and f != 'null.mp4']
     print(f"Files in temp folder: {files}")
     if files:
@@ -143,6 +143,7 @@ def download_instagram_reels_sssinstagram(reel_url, temp_folder, videos_folder, 
     driver = setup_selenium(temp_folder)
     # Navigate to sssinstagram's Instagram Reel Downloader
     driver.get("https://sssinstagram.com/reels-downloader")
+    time.sleep(10)
     try:
         print(f"[LOG] Attempting to find input box for reel: {reel_url}")
         # Find the input box and paste the reel URL
@@ -159,20 +160,6 @@ def download_instagram_reels_sssinstagram(reel_url, temp_folder, videos_folder, 
         )
         download_button.click()
         print("[LOG] Download button clicked. Waiting for video download link...")
-
-        # Check for error message before proceeding
-        try:
-            error_element = WebDriverWait(driver, 5).until(
-                EC.presence_of_element_located((By.XPATH, "//p[@class='error-message__text' and contains(text(), 'Something went wrong')]"))
-            )
-            if error_element:
-                print("[ERROR] 'Something went wrong' error detected. Aborting download for this reel.")
-                driver.quit()
-                return 2
-        except TimeoutException:
-            # No error message found, continue as normal
-            pass
-        
         # Wait for either of the "Download Video" buttons to appear and get the href
         download_video_button = WebDriverWait(driver, 20).until(
             EC.presence_of_element_located((By.XPATH, "//a[@class='button button--filled button__download']"))
@@ -184,10 +171,11 @@ def download_instagram_reels_sssinstagram(reel_url, temp_folder, videos_folder, 
         print(f"[LOG] Download link extracted: {video_download_link}")
         
         # Download the video manually using the extracted href link
+        time.sleep(5)
         print("[LOG] Navigating to the video download link...")
         driver.get(video_download_link)
         print("[LOG] Waiting for the download to start...")
-        time.sleep(10)  # Give time for the download to start
+        time.sleep(5)  # Give time for the download to start
         
         # Rename the file after download
         print("[LOG] Attempting to rename and move the downloaded file...")
@@ -224,10 +212,6 @@ def download_with_retry(reel_url, temp_folder, videos_folder, counter, links_fil
             if size_mb > 100:
                 print(f"File {video_path} is too large ({size_mb:.2f} MB). Removing...")
                 os.remove(video_path)
-            break
-        if number == 2:
-            print(f"[LOG] 'Something went wrong' error detected for reel: {reel_url}. Skipping this reel.")
-            success = True
             break
         else:
             attempt += 1
