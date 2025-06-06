@@ -159,6 +159,20 @@ def download_instagram_reels_sssinstagram(reel_url, temp_folder, videos_folder, 
         )
         download_button.click()
         print("[LOG] Download button clicked. Waiting for video download link...")
+
+        # Check for error message before proceeding
+        try:
+            error_element = WebDriverWait(driver, 5).until(
+                EC.presence_of_element_located((By.XPATH, "//p[@class='error-message__text' and contains(text(), 'Something went wrong')]"))
+            )
+            if error_element:
+                print("[ERROR] 'Something went wrong' error detected. Aborting download for this reel.")
+                driver.quit()
+                return 2
+        except TimeoutException:
+            # No error message found, continue as normal
+            pass
+        
         # Wait for either of the "Download Video" buttons to appear and get the href
         download_video_button = WebDriverWait(driver, 20).until(
             EC.presence_of_element_located((By.XPATH, "//a[@class='button button--filled button__download']"))
@@ -210,6 +224,10 @@ def download_with_retry(reel_url, temp_folder, videos_folder, counter, links_fil
             if size_mb > 100:
                 print(f"File {video_path} is too large ({size_mb:.2f} MB). Removing...")
                 os.remove(video_path)
+            break
+        if number == 2:
+            print(f"[LOG] 'Something went wrong' error detected for reel: {reel_url}. Skipping this reel.")
+            success = True
             break
         else:
             attempt += 1
